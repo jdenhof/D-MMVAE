@@ -516,6 +516,7 @@ class ConditionalLayers(nn.Module):
         self.shared_conditionals = list(conditional_paths["shared"].keys())
 
         self.shuffle_selection_order = False
+        self.is_parallel = False
         if selection_order:
             self.is_parallel = selection_order[0] == "parallel"
             self.shuffle_selection_order = not self.is_parallel
