@@ -131,7 +131,7 @@ class CMMVAECli(plcli.LightningCLI):
 
         best_model_path = self.trainer.checkpoint_callback.best_model_path
         new_best_model_path = os.path.join(
-            os.path.dirname(best_model_path), "best_model.ckpt"
+            os.path.dirname(best_model_path), "best_model_fr.ckpt"
         )
 
         shutil.copy(src=best_model_path, dst=new_best_model_path)

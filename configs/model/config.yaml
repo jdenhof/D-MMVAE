@@ -5,7 +5,7 @@ init_args:
     init_args:
       kl_weight: 1.0
   record_gradients: false
-  adv_weight: 25
+  adv_weight: 0
   gradient_record_cap: 20
   autograd_config:
     class_path: cmmvae.config.AutogradConfig

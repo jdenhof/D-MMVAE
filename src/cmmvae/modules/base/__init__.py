@@ -7,6 +7,7 @@ from cmmvae.modules.base.components import (
     FCBlockConfig,
     Expert,
     Experts,
+    AdversarialsGroup,
     ConditionalLayer,
     ConditionalLayers,
     GradientReversalFunction,
@@ -15,6 +16,7 @@ from cmmvae.modules.base.components import (
 from cmmvae.modules.base.annealing_fn import KLAnnealingFn, LinearKLAnnealingFn
 
 __all__ = [
+    "AdversarialsGroup",
     "ConditionalLayer",
     "ConditionalLayers",
     "Encoder",

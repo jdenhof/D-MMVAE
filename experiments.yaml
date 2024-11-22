@@ -1,25 +1,26 @@
 # experiments.yaml
 
-experiment_name: experiment
-run_name: version000
+experiment_name: args
+run_name: weight_20_mean_adversarials
 
 train_command:
   fit:
-    model: configs/model/config.yaml
+    model: configs/model/configV3.yaml
     trainer:
       track:
-        test: configs/trainer/config.test.yaml
-        # full: configs/trainer/config.yaml
+        # test: configs/trainer/config.test.yaml
+        full: configs/trainer/config.yaml
     data:
       track:
         local: configs/data/local.yaml
-        server: configs/data/server.yaml
+        # server: configs/data/server.yaml
 
 categories:
 - 'donor_id'
 - 'assay'
 - 'dataset_id'
 - 'cell_type'
+- 'species'
 
 merge_keys:
 - z

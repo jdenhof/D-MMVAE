@@ -447,6 +447,42 @@ def collect_species_files(
     print(f"Collected species files {species_files}")
     return species_files
 
+#Handle all adversarials grouped by condition
+adversarial_TYP = Union[FCBlockConfig, list[FCBlockConfig]]
+
+class AdversarialsGroup:
+    """
+    Handles a group of adversarials for the same condition
+    Args:
+        conditional str:
+            Conditional label the networks corresponds to. i.e "assay", "donor_id", "species" etc.
+
+    Attributes:
+        adversarial (cmmvae.modules.base.FCBlock):
+            Fully connected block for the adversarial network.
+    """
+
+    def __init__(
+        self,
+        adversarials: adversarial_TYP,
+        conditional: str,
+    ):
+        """
+        Initialize the Conditional Adversarial Network.
+
+        Args:
+            conditionals str:
+                List of conditionals to be used in the adversarial network.
+        """
+
+        if not isinstance(adversarials, list):
+            adversarials = [adversarials]
+        self.adversarials = nn.ModuleList(
+            [FCBlock(config) for config in adversarials if config]
+        )
+
+        self.conditional = conditional
+
 
 class ConditionalLayers(nn.Module):
 
