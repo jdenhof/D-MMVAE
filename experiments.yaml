@@ -1,8 +1,7 @@
 # experiments.yaml
 
-experiment_name: args
-run_name: weight_20_mean_adversarials
-
+experiment_name: definitive
+run_name: VECTOR_BCE_WEIGHT_0
 train_command:
   fit:
     model: configs/model/configV3.yaml
@@ -12,7 +11,7 @@ train_command:
         full: configs/trainer/config.yaml
     data:
       track:
-        local: configs/data/local.yaml
+        local: configs/data/local_chunk.yaml
         # server: configs/data/server.yaml
 
 categories:

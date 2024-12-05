@@ -1,7 +1,12 @@
 from typing import Union
 
 from cmmvae.data.local.cellxgene_datapipe import SpeciesDataPipe
+from cmmvae.data.encoding_dicts import assay_dict
+from cmmvae.data.encoding_dicts import donor_id_dict
+from cmmvae.data.encoding_dicts import dataset_id_dict
 import torch
+
+
 
 
 def wrap_in_list(value):
@@ -82,16 +87,6 @@ class SpeciesManager:
             function: A generator function that processes source data and appends the species name.
         """
 
-        # assay_mapping = {
-        # "10x 5' transcription profiling": 0,
-        # "10x 3' v2": 1,
-        # "10x 5' v2": 2,
-        # "10x 3' v3": 3,
-        # "10x 5' v1": 4,
-        # "10x 3' v1": 5,
-        # "10x 3' transcription profiling": 6,
-        # "microwell-seq": 7
-        # }
 
         species_mapping= {
             "human": 0,
@@ -103,27 +98,33 @@ class SpeciesManager:
                 if self.name == "human":
                     encoded_labels = torch.zeros(self.batch_size, 1, dtype=torch.long)
                 elif self.name == "mouse":
-                    encoded_labels = torch.ones(self.batch_size, 1, dtype=torch.long)
+                    encoded_labels = torch.ones(self.batch_size,1, dtype=torch.long)
                 else:
                     raise ValueError("Unexpected condition given")
+                return encoded_labels
             else:
                 encoded_labels = torch.tensor([mapping[elt] for elt in conditional], dtype=torch.long)
 
             # One-hot encode the tensor
-            # one_hot_matrix = torch.nn.functional.one_hot(encoded_labels, num_classes=len(mapping))
+            one_hot_matrix = torch.nn.functional.one_hot(encoded_labels, num_classes=len(mapping))
 
-            # return one_hot_matrix
-            return encoded_labels
+            return one_hot_matrix
 
         def generator(source):
             tensor, metadata = source
 
             assay_values = metadata["assay"].values
+            donor_id_values = metadata["donor_id"].values
+            dataset_id_values = metadata["dataset_id"].values
 
-            # one_hot_assay = encode_conditional(assay_values, assay_mapping)
+            # one_hot_donor_id = encode_conditional(donor_id_values, donor_id_dict.donor_id)
+            # one_hot_dataset_id = encode_conditional(dataset_id_values, dataset_id_dict.dataset_id)
+            # one_hot_assay = encode_conditional(assay_values, assay_dict.assay)
             one_hot_species = encode_conditional([self.name], species_mapping, species=True)
             
             one_hot_labels = {
+                # "donor_id": one_hot_donor_id,
+                # "dataset_id": one_hot_dataset_id,
                 # "assay": one_hot_assay,
                 "species": one_hot_species
             }

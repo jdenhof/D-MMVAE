@@ -45,7 +45,7 @@ class CMMVAE(nn.Module):
         super().__init__()
         self.vae = vae
         self.experts = experts
-        self.adversarials = None
+        self.adversarial_groups = None
 
         if adversarial_groups:
             if not isinstance(adversarial_groups, list):
