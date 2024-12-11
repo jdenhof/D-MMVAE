@@ -94,20 +94,22 @@ else
   echo "Skipping commit hash display."
 fi
 
+compare_name=$(basename "$comare")
+
 for file in "$compare"/*.yaml
 do
   run_name=$(basename "$file" .yaml)
 
   if [ "$commit_hash" != "" ]; then
-    run_name="${commit_hash}.${run_name}"
+    run_name="${commit_hash}.${compare_name}.${run_name}"
   fi
 
-  ran_dirs=$(ls -d "$root_dir/$experiment/$run_name"* 2>/dev/null)
+  ran_dirs=$(find "$root_dir/$experiment" -type d -name "*$run_name*")
 
   if [ -z "$ran_dirs" ]; then
     version="V000"
   else
-    version=$(echo "$ran_dirs" | grep -E 'V[0-9]{3}$' | sort -V | tail -n 1 | sed -E 's/.*V([0-9]{3})$/\1/' | awk '{printf "V%03d", $1 + 1}')
+    version=$(echo "$ran_dirs" | grep -E 'V[0-9]{3}' | sort -V | tail -n 1 | sed -E 's/.*V([0-9]{3}).*/\1/' | awk '{printf "V%03d", $1 + 1}')
   fi
 
   echo "Processing: $file"
