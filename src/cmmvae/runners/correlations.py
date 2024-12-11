@@ -43,11 +43,8 @@ def setup_datapipes(data_dir: str, human_masks: str, mouse_masks: str):
 
 
 def setup_dataloaders(data_dir: str):
+    gids = np.random.choice(np.arange(1, 252), size=25, replace=False)
 
-    gids = np.random.choice(
-        np.arange(1, 252), size=25, replace=False
-    )
-    
     human_masks = [f"human*_{gid}" for gid in gids]
     mouse_masks = [f"mouse*_{gid}" for gid in gids]
 
@@ -84,6 +81,7 @@ def convert_to_tensor(batch: sp.csr_matrix):
         else torch.device("cpu"),
     )
 
+
 def get_correlations(model: CMMVAEModel, data_dir: str, save_dir: str):
     human_dataloader, mouse_dataloader = setup_dataloaders(data_dir)
 
@@ -103,11 +101,14 @@ def get_correlations(model: CMMVAEModel, data_dir: str, save_dir: str):
             )
         save_data = convert_to_csr(human_out, mouse_out)
         metadata = {RK.HUMAN: human_metadata, RK.MOUSE: mouse_metadata}
-        save_correlations(save_data, metadata, save_dir, gid=human_metadata["group_id"].iloc[0])
+        save_correlations(
+            save_data, metadata, save_dir, gid=human_metadata["group_id"].iloc[0]
+        )
+
 
 def convert_to_csr(
-    human_xhats: dict[str: torch.Tensor],
-    mouse_xhats: dict[str: torch.Tensor],
+    human_xhats: dict[str : torch.Tensor],
+    mouse_xhats: dict[str : torch.Tensor],
 ):
     converted = {}
     for output_species, xhat in human_xhats.items():
@@ -117,18 +118,16 @@ def convert_to_csr(
         nparray = xhat.cpu().numpy()
         converted[f"mouse_to_{output_species}"] = sp.csr_matrix(nparray)
     return converted
-    
 
-def save_correlations(data: dict[str, sp.csr_matrix], metadata: pd.DataFrame, save_dir: str, gid: int):
+
+def save_correlations(
+    data: dict[str, sp.csr_matrix], metadata: pd.DataFrame, save_dir: str, gid: int
+):
     for file_name, data in data.items():
-        sp.save_npz(
-            os.path.join(save_dir, f"{file_name}_{gid}.npz"),
-            data
-        )
+        sp.save_npz(os.path.join(save_dir, f"{file_name}_{gid}.npz"), data)
     for species, md in metadata.items():
-        md.to_pickle(
-            os.path.join(save_dir, f"{species}_metadata_{gid}.pkl")
-        )
+        md.to_pickle(os.path.join(save_dir, f"{species}_metadata_{gid}.pkl"))
+
 
 @click.command(
     context_settings=dict(

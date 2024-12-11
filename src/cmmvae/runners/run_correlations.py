@@ -14,6 +14,7 @@ from cmmvae.constants import REGISTRY_KEYS as RK
 
 FILTERED_BY_CATEGORIES = ["assay", "cell_type", "tissue", "sex"]
 
+
 def calc_correlations(human_out: np.ndarray, mouse_out: np.ndarray, n_samples: int):
     with np.errstate(divide="ignore", invalid="ignore"):
         human_correlations = np.corrcoef(human_out)
@@ -28,9 +29,7 @@ def calc_correlations(human_out: np.ndarray, mouse_out: np.ndarray, n_samples: i
         human_comb = np.round(
             np.nan_to_num(human_correlations[:n_samples, n_samples:]).mean(), 3
         )
-        human_rel = np.round(
-            (2 * human_comb) / (human_cis + human_cross), 3
-        )
+        human_rel = np.round((2 * human_comb) / (human_cis + human_cross), 3)
 
         mouse_cis = np.round(
             np.nan_to_num(mouse_correlations[:n_samples, :n_samples]).mean(), 3
@@ -41,9 +40,7 @@ def calc_correlations(human_out: np.ndarray, mouse_out: np.ndarray, n_samples: i
         mouse_comb = np.round(
             np.nan_to_num(mouse_correlations[:n_samples, n_samples:]).mean(), 3
         )
-        mouse_rel = np.round(
-            (2 * mouse_comb) / (mouse_cis + mouse_cross), 3
-        )
+        mouse_rel = np.round((2 * mouse_comb) / (mouse_cis + mouse_cross), 3)
 
     return pd.DataFrame(
         {
@@ -54,20 +51,21 @@ def calc_correlations(human_out: np.ndarray, mouse_out: np.ndarray, n_samples: i
             "mouse_cis": [mouse_cis],
             "mouse_cross": [mouse_cross],
             "mouse_comb": [mouse_comb],
-            "mouse_rel": [mouse_rel]
+            "mouse_rel": [mouse_rel],
         }
     )
+
 
 def save_correlations(correlations: pd.DataFrame, save_dir: str):
     correlations = correlations.sort_values("group_id")
     correlations.to_csv(os.path.join(save_dir, "correlations.csv"), index=False)
     correlations.to_pickle(os.path.join(save_dir, "correlations.pkl"))
 
-def get_correlations(
-        data_files: dict[str: dict[str: sp.csr_matrix]],
-        metadata_files: dict[str: dict[str: pd.DataFrame]]
-):
 
+def get_correlations(
+    data_files: dict[str : dict[str : sp.csr_matrix]],
+    metadata_files: dict[str : dict[str : pd.DataFrame]],
+):
     correlations = pd.DataFrame(
         columns=[
             "group_id",
@@ -92,13 +90,13 @@ def get_correlations(
         human_stacked_out = np.vstack(
             (
                 data[f"{RK.HUMAN}_to_{RK.HUMAN}"].toarray(),
-                data[f"{RK.MOUSE}_to_{RK.HUMAN}"].toarray()
+                data[f"{RK.MOUSE}_to_{RK.HUMAN}"].toarray(),
             )
         )
         mouse_stacked_out = np.vstack(
             (
                 data[f"{RK.MOUSE}_to_{RK.MOUSE}"].toarray(),
-                data[f"{RK.HUMAN}_to_{RK.MOUSE}"].toarray()
+                data[f"{RK.HUMAN}_to_{RK.MOUSE}"].toarray(),
             )
         )
 
@@ -109,12 +107,16 @@ def get_correlations(
         avg_correlations["group_id"] = gid
         avg_correlations["num_samples"] = n_samples
         avg_correlations["tag"] = " ".join(
-            [metadata_files[gid][RK.HUMAN][cat].iloc[0] for cat in FILTERED_BY_CATEGORIES]
+            [
+                metadata_files[gid][RK.HUMAN][cat].iloc[0]
+                for cat in FILTERED_BY_CATEGORIES
+            ]
         )
 
         correlations = pd.concat([correlations, avg_correlations], ignore_index=True)
 
     return correlations
+
 
 def correlations(directory: str):
     data_files = defaultdict(dict)
@@ -148,6 +150,7 @@ def correlations(directory: str):
     correlations = get_correlations(data_files, metadata_files)
     save_correlations(correlations, directory)
 
+
 @click.command()
 @click.option(
     "--directory",
@@ -158,6 +161,7 @@ def correlations(directory: str):
 )
 def run_correlations(**kwargs):
     correlations(**kwargs)
+
 
 if __name__ == "__main__":
     run_correlations()

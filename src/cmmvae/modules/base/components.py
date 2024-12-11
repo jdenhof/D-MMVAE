@@ -524,6 +524,9 @@ class ConditionalLayers(nn.Module):
             selection_order = conditionals
             self.shuffle_selection_order = True
 
+        if self.is_parallel or not selection_order:
+            selection_order = conditionals
+
         # Add all shared conditional layers
         layer_dict = {
             batch_key: ConditionalLayer(
