@@ -87,7 +87,6 @@ class SpeciesManager:
             function: A generator function that processes source data and appends the species name.
         """
 
-
         species_mapping= {
             "human": 0,
             "mouse": 1,
@@ -96,12 +95,11 @@ class SpeciesManager:
         def encode_conditional(conditional: str, mapping: dict, species=False) -> torch.tensor:
             if species:
                 if self.name == "human":
-                    encoded_labels = torch.zeros(self.batch_size, 1, dtype=torch.long)
+                    encoded_labels = torch.zeros(self.batch_size, dtype=torch.long)
                 elif self.name == "mouse":
-                    encoded_labels = torch.ones(self.batch_size,1, dtype=torch.long)
+                    encoded_labels = torch.ones(self.batch_size, dtype=torch.long)
                 else:
                     raise ValueError("Unexpected condition given")
-                return encoded_labels
             else:
                 encoded_labels = torch.tensor([mapping[elt] for elt in conditional], dtype=torch.long)
 
@@ -117,15 +115,15 @@ class SpeciesManager:
             donor_id_values = metadata["donor_id"].values
             dataset_id_values = metadata["dataset_id"].values
 
-            # one_hot_donor_id = encode_conditional(donor_id_values, donor_id_dict.donor_id)
-            # one_hot_dataset_id = encode_conditional(dataset_id_values, dataset_id_dict.dataset_id)
-            # one_hot_assay = encode_conditional(assay_values, assay_dict.assay)
+            one_hot_donor_id = encode_conditional(donor_id_values, donor_id_dict.donor_id)
+            one_hot_dataset_id = encode_conditional(dataset_id_values, dataset_id_dict.dataset_id)
+            one_hot_assay = encode_conditional(assay_values, assay_dict.assay)
             one_hot_species = encode_conditional([self.name], species_mapping, species=True)
             
             one_hot_labels = {
-                # "donor_id": one_hot_donor_id,
-                # "dataset_id": one_hot_dataset_id,
-                # "assay": one_hot_assay,
+                "donor_id": one_hot_donor_id,
+                "dataset_id": one_hot_dataset_id,
+                "assay": one_hot_assay,
                 "species": one_hot_species
             }
 

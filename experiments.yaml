@@ -1,7 +1,7 @@
 # experiments.yaml
 
-experiment_name: definitive
-run_name: VECTOR_BCE_WEIGHT_0
+experiment_name: disc_training
+run_name: ReLU_to_Sigmoid_weight_20_two_disc_constant_kl_assay
 train_command:
   fit:
     model: configs/model/configV3.yaml
@@ -13,6 +13,7 @@ train_command:
       track:
         local: configs/data/local_chunk.yaml
         # server: configs/data/server.yaml
+
 
 categories:
 - 'donor_id'

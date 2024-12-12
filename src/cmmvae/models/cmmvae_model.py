@@ -109,12 +109,7 @@ class CMMVAEModel(BaseModel):
         # Backpropagate adversarial loss to adversarial networks
         self.manual_backward(adv_loss)
         # Clip and update adversarial networks
-        for optim in adversarial_optimizers.values():
-            if self.autograd_config.adversarial_gradient_clip:
-                self.clip_gradients(
-                    optim, *self.autograd_config.adversarial_gradient_clip
-                )
-            optim.step()
+        self.step_adv_optimizers()
 
         # Now compute adversarial loss for main network (with gradient reversal)
         adv_loss_main = self.grf(hidden_representations, expert_id, detach=False)
@@ -153,6 +148,7 @@ class CMMVAEModel(BaseModel):
 
             adv_output = adv(hidden_rep)
             sum_loss = torch.nn.functional.binary_cross_entropy(adv_output, label.float(), reduction = "sum")
+            mean_loss = torch.nn.functional.binary_cross_entropy(adv_output,label.float(), reduction = "mean")
             # sum_loss = torch.nn.functional.cross_entropy(adv_output, label.float(), reduction = "sum")
             # current_discriminator_loss = self.adversarial_criterion(
             #     adv_output, label.float()
@@ -162,9 +158,11 @@ class CMMVAEModel(BaseModel):
             if not generator:
                 self.manual_backward(sum_loss)
                 self.step_adv_optimizers()
-                mean_loss = torch.nn.functional.binary_cross_entropy(adv_output,label.float(), reduction = "mean")
-                # mean_loss = torch.nn.functional.cross_entropy(adv_output, label.float(), reduction = "mean")
+                self.zero_adv_optimizers(adversarial_group.conditional)
                 loss_dict[RK.ADV_LOSS + adversarial_group.conditional + str(i)] = mean_loss
+            else:
+                loss_dict[RK.ADV_LOSS] = mean_loss
+            
         
         return torch.stack(losses).sum()
 
@@ -173,7 +171,8 @@ class CMMVAEModel(BaseModel):
         self,
         hidden_representations,
         labels,
-        main_loss_dict
+        main_loss_dict,
+        use_grf
     ):
         
         assert self.module.adversarial_groups
@@ -212,8 +211,9 @@ class CMMVAEModel(BaseModel):
         # Zero all gradients
         vae_optimizer.zero_grad()
         expert_optimizer.zero_grad()
-        for adv_group in self.module.adversarial_groups:
-            self.zero_adv_optimizers(adv_group.conditional)
+        if self.module.adversarial_groups:
+            for adv_group in self.module.adversarial_groups:
+                self.zero_adv_optimizers(adv_group.conditional)
 
         # Perform forward pass
         qz, pz, z, xhats, hidden_representations = self.module(
@@ -231,7 +231,7 @@ class CMMVAEModel(BaseModel):
 
 
         adv_loss = None
-        if self.module.adversarial_groups and self.current_epoch >= 0:
+        if self.module.adversarial_groups:
             if self.adversarial_method == "GRF":
                 adv_loss = self.gradient_reversal_domain_classifier(
                     hidden_representations + [z], expert_id, adversarial_optimizers
@@ -241,9 +241,12 @@ class CMMVAEModel(BaseModel):
                     hidden_representations, labels, main_loss_dict
                 )
 
+        adv_weight = 0
+        if self.current_epoch > 1:
+            adv_weight = self.adv_weight
         if adv_loss:
-            main_loss_dict[RK.ADV_LOSS] = adv_loss
-            total_loss = total_loss + (adv_loss * self.adv_weight)
+            # main_loss_dict[RK.ADV_LOSS] = adv_loss 
+            total_loss = total_loss + (adv_loss * adv_weight)
 
 
         # Backpropagate main loss
@@ -401,7 +404,7 @@ class CMMVAEModel(BaseModel):
         for group in self.module.adversarial_groups:
             for _, opt in optimizers["adversarials" + group.conditional].items():
                 # if self.autograd_config.adversarial_gradient_clip:
-                self.clip_gradients(opt, gradient_clip_val=1.00, gradient_clip_algorithm="value")
+                self.clip_gradients(opt, gradient_clip_val=0.005, gradient_clip_algorithm="norm")
                 opt.step()
 
     def zero_adv_optimizers(self, condition):
