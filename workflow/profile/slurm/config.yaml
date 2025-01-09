@@ -9,7 +9,7 @@ cluster:
     --output=.cmmvae/logs/{rule}/job.%j.out
     --error=.cmmvae/logs/{rule}/job.%j.err
     --gpus-per-node={resources.gpus_per_node}
-    --account=account
+    --account=student
     --ntasks=1
     --nodes=1
     --time={resources.runtime}
@@ -27,7 +27,7 @@ set-resources:
   diff_expression:
     partition: bigmem
     mem: 179GB
-    gpus_per_node: ""
+    gpus_per_node: 0
     cpus_per_task: 1
   train:
     partition: gpu

@@ -127,6 +127,13 @@ class SpeciesManager:
                 "species": one_hot_species
             }
 
+            one_hot_labels = {
+                "donor_id": one_hot_donor_id,
+                "dataset_id": one_hot_dataset_id,
+                "assay": one_hot_assay,
+                "species": one_hot_species
+            }
+
 
             return tensor, metadata, self.name, one_hot_labels
 
