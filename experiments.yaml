@@ -1,7 +1,7 @@
 # experiments.yaml
 
 experiment_name: bce_testing
-run_name: assay_species_weight_40_10_epochs
+run_name: assay_species_weight_1_30_epochs_sum
 train_command:
   fit:
     model: configs/model/adv_trials/assay_species.yaml

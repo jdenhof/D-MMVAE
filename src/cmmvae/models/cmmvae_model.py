@@ -102,7 +102,9 @@ class CMMVAEModel(BaseModel):
                 
             adv = adv.to(self.device)
 
+
             adv_output = adv(hidden_rep)
+
             sum_loss = torch.nn.functional.binary_cross_entropy(adv_output, label.float(), reduction = "sum")
             mean_loss = torch.nn.functional.binary_cross_entropy(adv_output, label.float(), reduction = "mean")
 
@@ -143,7 +145,7 @@ class CMMVAEModel(BaseModel):
                                               labels[adv_group.conditional], main_loss_dict, generator=True, use_grf=False)
 
             adv_group_losses.append(gen_loss)
-        return torch.stack(adv_group_losses).mean()
+        return torch.stack(adv_group_losses).sum()
 
     def training_step(
         self, batch: tuple[torch.Tensor, pd.DataFrame, str], batch_idx: int

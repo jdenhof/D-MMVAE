@@ -5,7 +5,7 @@ init_args:
     init_args:
       kl_weight: 0.5
   record_gradients: false
-  adv_weight: 40
+  adv_weight: 1
   adversarial_method: ""
   gradient_record_cap: 20
   autograd_config:

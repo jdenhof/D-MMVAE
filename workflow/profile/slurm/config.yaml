@@ -32,12 +32,13 @@ set-resources:
   train:
     partition: gpu
     mem: 80GB
-    gpus_per_node: tesla_v100s:1
+    # gpus_per_node: tesla_v100s:1
+    gpus_per_node: 1
     cpus_per_task: 12
   predict:
     partition: gpu
     mem: 179GB
-    gpus_per_node: tesla_v100s:1
+    gpus_per_node: 1
     cpus_per_task: 12
   merge_predictions:
     partition: all
