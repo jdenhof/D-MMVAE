@@ -11,6 +11,7 @@ from cmmvae.modules.base.components import (
     ConditionalLayer,
     ConditionalLayers,
     GradientReversalFunction,
+    ConcatBlockConfig,
 )
 
 from cmmvae.modules.base.annealing_fn import KLAnnealingFn, LinearKLAnnealingFn
@@ -19,6 +20,7 @@ __all__ = [
     "AdversarialsGroup",
     "ConditionalLayer",
     "ConditionalLayers",
+    "ConcatBlockConfig",
     "Encoder",
     "Expert",
     "Experts",
