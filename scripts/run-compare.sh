@@ -1,5 +1,22 @@
 #!/bin/bash
 
+help() {
+  echo "Usage: $0 [options]"
+  echo ""
+  echo "Options:"
+  echo "  -h, --help                Show this help message and exit"
+  echo "  --debug                  Run the script in debug mode"
+  echo "  --no-commit-hash         Do not append the commit hash to the run name"
+  echo "  root_dir=<path>          Set the root directory (default: lightning_logs)"
+  echo "  experiment=<name>        Set the experiment name (default: default)"
+  echo "  compare=<path>           Set the directory containing model configs to compare"
+  echo "  data=<path>              Set the data config file (default: configs/data/local.yaml)"
+  echo "  max_epochs=<number>      Set the maximum number of epochs (default: 5)"
+  echo ""
+  echo "Example:"
+  echo "  $0 --debug root_dir=my_logs experiment=my_experiment compare=configs/models"
+}
+
 debug=false
 append_commit_hash=true
 root_dir="${CMMVAE_ROOT_DIR}"
@@ -37,6 +54,14 @@ fi
 for arg in "$@"
 do
     case $arg in
+        -h)
+            help
+            exit 0
+            ;;
+        --help)
+          help
+          exit 0
+          ;;
         --debug)
             debug=true
             shift
@@ -94,7 +119,7 @@ else
   echo "Skipping commit hash display."
 fi
 
-compare_name=$(basename "$comare")
+compare_name=$(basename "$compare")
 
 for file in "$compare"/*.yaml
 do
