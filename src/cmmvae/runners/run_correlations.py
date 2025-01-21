@@ -15,6 +15,7 @@ from cmmvae.constants import REGISTRY_KEYS as RK
 
 # FILTERED_BY_CATEGORIES = ["sex", "dev_stage", "tissue", "cell_type", "assay"]
 
+
 def calc_correlations(human_out: np.ndarray, mouse_out: np.ndarray, n_samples: int):
     with np.errstate(divide="ignore", invalid="ignore"):
         human_correlations = np.corrcoef(human_out)
@@ -29,9 +30,7 @@ def calc_correlations(human_out: np.ndarray, mouse_out: np.ndarray, n_samples: i
         human_comb = np.round(
             np.nan_to_num(human_correlations[:n_samples, n_samples:]).mean(), 3
         )
-        human_rel = np.round(
-            (2 * human_comb) / (human_cis + human_cross), 3
-        )
+        human_rel = np.round((2 * human_comb) / (human_cis + human_cross), 3)
 
         mouse_cis = np.round(
             np.nan_to_num(mouse_correlations[:n_samples, :n_samples]).mean(), 3
@@ -42,9 +41,7 @@ def calc_correlations(human_out: np.ndarray, mouse_out: np.ndarray, n_samples: i
         mouse_comb = np.round(
             np.nan_to_num(mouse_correlations[:n_samples, n_samples:]).mean(), 3
         )
-        mouse_rel = np.round(
-            (2 * mouse_comb) / (mouse_cis + mouse_cross), 3
-        )
+        mouse_rel = np.round((2 * mouse_comb) / (mouse_cis + mouse_cross), 3)
 
     return pd.DataFrame(
         {
@@ -55,9 +52,10 @@ def calc_correlations(human_out: np.ndarray, mouse_out: np.ndarray, n_samples: i
             "mouse_cis": [mouse_cis],
             "mouse_cross": [mouse_cross],
             "mouse_comb": [mouse_comb],
-            "mouse_rel": [mouse_rel]
+            "mouse_rel": [mouse_rel],
         }
     )
+
 
 def save_correlations(correlations: pd.DataFrame, save_dir: str):
     correlations = correlations.sort_values("group_id")
@@ -69,7 +67,9 @@ def save_correlations(correlations: pd.DataFrame, save_dir: str):
 
     fig, ax = plt.subplots(figsize=(12, fig_height))
     correlations[["human_rel", "mouse_rel"]].boxplot(ax=ax)
-    table_vals = correlations[["group_id", "human_rel", "mouse_rel"] + RK.FILTER_CATEGORIES].values
+    table_vals = correlations[
+        ["group_id", "human_rel", "mouse_rel"] + RK.FILTER_CATEGORIES
+    ].values
     table = plt.table(
         cellText=table_vals,
         colLabels=["group_id", "human_rel", "mouse_rel"] + RK.FILTER_CATEGORIES,
@@ -77,7 +77,7 @@ def save_correlations(correlations: pd.DataFrame, save_dir: str):
         cellLoc="center",
         colLoc="center",
     )
-    
+
     # Adjust settings for legibility
     table.scale(1.5, 1.5)
     table.auto_set_font_size(False)
@@ -92,11 +92,11 @@ def save_correlations(correlations: pd.DataFrame, save_dir: str):
     plt.savefig(os.path.join(save_dir, "correlations.png"), bbox_inches="tight")
     plt.close(fig)
 
-def get_correlations(
-        data_files: dict[str: dict[str: sp.csr_matrix]],
-        metadata_files: dict[str: dict[str: pd.DataFrame]]
-):
 
+def get_correlations(
+    data_files: dict[str : dict[str : sp.csr_matrix]],
+    metadata_files: dict[str : dict[str : pd.DataFrame]],
+):
     correlations = pd.DataFrame(
         columns=[
             "group_id",
@@ -109,7 +109,8 @@ def get_correlations(
             "mouse_cross",
             "mouse_comb",
             "mouse_rel",
-        ] + RK.FILTER_CATEGORIES
+        ]
+        + RK.FILTER_CATEGORIES
     )
     # print(data_files)
     # print(metadata_files)
@@ -120,13 +121,13 @@ def get_correlations(
         human_stacked_out = np.vstack(
             (
                 data[f"{RK.HUMAN}_to_{RK.HUMAN}"].toarray(),
-                data[f"{RK.MOUSE}_to_{RK.HUMAN}"].toarray()
+                data[f"{RK.MOUSE}_to_{RK.HUMAN}"].toarray(),
             )
         )
         mouse_stacked_out = np.vstack(
             (
                 data[f"{RK.MOUSE}_to_{RK.MOUSE}"].toarray(),
-                data[f"{RK.HUMAN}_to_{RK.MOUSE}"].toarray()
+                data[f"{RK.HUMAN}_to_{RK.MOUSE}"].toarray(),
             )
         )
 
@@ -143,6 +144,7 @@ def get_correlations(
         correlations = pd.concat([correlations, avg_correlations], ignore_index=True)
 
     return correlations
+
 
 def correlations(directory: str):
     data_files = defaultdict(dict)
@@ -176,6 +178,7 @@ def correlations(directory: str):
     correlations = get_correlations(data_files, metadata_files)
     save_correlations(correlations, directory)
 
+
 @click.command()
 @click.option(
     "--directory",
@@ -186,6 +189,7 @@ def correlations(directory: str):
 )
 def run_correlations(**kwargs):
     correlations(**kwargs)
+
 
 if __name__ == "__main__":
     run_correlations()

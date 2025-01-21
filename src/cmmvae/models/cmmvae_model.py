@@ -294,7 +294,7 @@ class CMMVAEModel(BaseModel):
         self.auto_log(loss_dict, tags=[self.stage_name, expert_id])
 
         if self.trainer.validating:
-            self.log("val_loss", loss_dict[RK.LOSS], logger=False, on_epoch=True)
+            self.log("val_loss", loss_dict[RK.LOSS], logger=True, on_epoch=True)
 
     # Alias for validation_step method to reuse for testing
     test_step = validation_step
