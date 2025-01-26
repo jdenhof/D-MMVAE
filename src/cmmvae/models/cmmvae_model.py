@@ -13,7 +13,7 @@ from cmmvae.config import AutogradConfig
 
 
 class CMMVAEModel(BaseModel):
-    r"""
+    """
     Conditional Multi-Modal Variational Autoencoder (CMMVAE) model for handling expert-specific data.
 
     This class is designed for training VAEs with multiple experts and adversarial components.
@@ -53,9 +53,9 @@ class CMMVAEModel(BaseModel):
         )
         # Criterion for adversarial loss
         if adversarial_method == "GRF":
-            adv_criterion = nn.BCEWithLogitsLoss(reduction="mean")
+            adv_criterion = nn.CrossEntropyLoss(reduction="mean")
         else:
-            adv_criterion = nn.BCELoss(reduction="sum")
+            adv_criterion = nn.BCELoss(reduction="mean")
 
         self.adversarial_criterion = adv_criterion
         self.init_weights()
@@ -63,144 +63,106 @@ class CMMVAEModel(BaseModel):
         self.adversarial_method = adversarial_method
         self.autograd_config = autograd_config or AutogradConfig()
 
-    def grf(
-        self,
-        hidden_representations: list[torch.Tensor],
-        expert_id: str,
-        detach: bool = False,
+    def _adversarial_feedback(
+            self,
+            adversarial_group,
+            hidden_representations: list[torch.Tensor],
+            label: torch.Tensor,
+            loss_dict: dict,
+            generator: bool,
+            use_grf : bool
     ):
-        assert self.module.adversarials
-        batch_size = hidden_representations[0].shape[0]
-        label_value = 1.0 if expert_id == "human" else 0.0
-        label = torch.full((batch_size,), label_value, device=self.device)
+        """
+        Calculate the loss for an adversarial group 
+        """
+        assert (
+            len(hidden_representations)
+            == len(adversarial_group.adversarials)
+        )
 
-        adv_losses = []
+        if generator:
+            assert use_grf == False
+
+        label = label.to(self.device)
+        if generator:
+            label = 1 - label
+
+        losses = []
         for i, (hidden_rep, adv) in enumerate(
-            zip(hidden_representations, self.module.adversarials)
+            zip(hidden_representations, adversarial_group.adversarials)
         ):
-            if detach:
+            hidden_rep = torch.nn.functional.layer_norm(hidden_rep, hidden_rep.shape)
+            # Get adversarial predictions
+
+            if not generator:
                 hidden_rep = hidden_rep.detach()
-            else:
-                # Apply Gradient Reversal Function when updating the main network
+
+            if use_grf:
                 hidden_rep = GradientReversalFunction.apply(hidden_rep, 1)
+                
+            adv = adv.to(self.device)
+
 
             adv_output = adv(hidden_rep)
 
-            # Calculate adversarial loss
-            disc_loss = self.adversarial_criterion(adv_output.view(-1), label)
-            adv_losses.append(disc_loss)
+            sum_loss = torch.nn.functional.binary_cross_entropy(adv_output, label.float(), reduction = "sum")
+            mean_loss = torch.nn.functional.binary_cross_entropy(adv_output, label.float(), reduction = "mean")
 
-        self.auto_log(
-            {f"layer_{i}": l for i, l in enumerate(adv_losses)},
-            tags=[RK.ADV_LOSS, self.stage_name, expert_id],
-            key_pos="last",
-        )
+            losses.append(sum_loss)
+            if not generator and not use_grf:
+                self.manual_backward(sum_loss, retain_graph=True)
+                self.step_adv_optimizers()
+                self.zero_adv_optimizers(adversarial_group.conditional)
+                loss_dict[RK.ADV_LOSS + adversarial_group.conditional + str(i)] = mean_loss
+            else:
+                loss_dict[RK.ADV_LOSS] = mean_loss
+            
+        
+        return torch.stack(losses).sum()
 
-        return torch.sum(torch.stack(adv_losses))
-
-    def gradient_reversal_domain_classifier(
-        self,
-        hidden_representations,
-        expert_id,
-        adversarial_optimizers,
-    ):
-        # Compute adversarial loss for adversarial networks
-        adv_loss = self.grf(hidden_representations, expert_id, detach=True)
-        # Backpropagate adversarial loss to adversarial networks
-        self.manual_backward(adv_loss)
-        # Clip and update adversarial networks
-        for optim in adversarial_optimizers.values():
-            if self.autograd_config.adversarial_gradient_clip:
-                self.clip_gradients(
-                    optim, *self.autograd_config.adversarial_gradient_clip
-                )
-            optim.step()
-
-        # Now compute adversarial loss for main network (with gradient reversal)
-        adv_loss_main = self.grf(hidden_representations, expert_id, detach=False)
-        # Add adversarial loss to total loss (with weight)
-        return adv_loss_main
 
     def adversarial_feedback(
         self,
-        hidden_representations,
-        expert_id,
-        adversarial_optimizers,
+        hidden_representations: list[torch.Tensor],
+        labels,
+        main_loss_dict: dict,
+        use_grf: bool
     ):
-        batch_size = hidden_representations[0].shape[0]
-        human_label = torch.zeros(batch_size, 1, device=self.device)
-        mouse_label = torch.ones(batch_size, 1, device=self.device)
+        
+        assert self.module.adversarial_groups
 
-        expert_labels = human_label if expert_id == "human" else mouse_label
-        trick_labels = human_label if expert_id == "mouse" else mouse_label
+        adv_group_losses = []
+        for adv_group in self.module.adversarial_groups:
 
-        assert (
-            len(hidden_representations)
-            == len(self.module.adversarials)
-            == len(adversarial_optimizers)
-        )
-        adversarial_loss = []
-        for i, (hidden_rep, adv) in enumerate(
-            zip(hidden_representations, self.module.adversarials)
-        ):
-            hidden_rep = torch.nn.functional.layer_norm(
-                hidden_rep, (hidden_rep.shape[1],)
-            )
-            # Get adversarial predictions
-            adv_output = adv(hidden_rep)
+            _ = self._adversarial_feedback(adv_group, hidden_representations,
+                                              labels[adv_group.conditional], main_loss_dict, generator=False, use_grf=False)
 
-            # Calculate adversarial loss
-            current_discriminator_loss = self.adversarial_criterion(
-                adv_output, expert_labels
-            )
+            if use_grf:
+                gen_loss = self._adversarial_feedback(adv_group, hidden_representations, 
+                                              labels[adv_group.conditional], main_loss_dict, generator=False, use_grf=True)
+            else:
+                gen_loss = self._adversarial_feedback(adv_group, hidden_representations, 
+                                              labels[adv_group.conditional], main_loss_dict, generator=True, use_grf=False)
 
-            # loss_dict[f"adv_{i}"] = current_discriminator_loss
-
-            # Backpropagation for the adversarial
-            self.manual_backward(current_discriminator_loss, retain_graph=True)
-
-            if self.autograd_config.adversarial_gradient_clip:
-                self.clip_gradients(
-                    adversarial_optimizers[i],
-                    *self.autograd_config.adversarial_gradient_clip,
-                )
-
-            adversarial_optimizers[i].step()
-
-        for i, (hidden_rep, adv) in enumerate(
-            zip(hidden_representations, self.module.adversarials)
-        ):
-            hidden_rep = torch.nn.functional.layer_norm(
-                hidden_rep, (hidden_rep.shape[1],)
-            )
-            # Get adversarial predictions
-            adv_output = adv(hidden_rep)
-
-            # Calculate adversarial loss
-            current_adversarial_loss = self.adversarial_criterion(
-                adv_output, trick_labels
-            )
-            adversarial_loss.append(current_adversarial_loss)
-
-        return torch.stack(adversarial_loss).sum()
+            adv_group_losses.append(gen_loss)
+        return torch.stack(adv_group_losses).sum()
 
     def training_step(
         self, batch: tuple[torch.Tensor, pd.DataFrame, str], batch_idx: int
     ) -> None:
-        x, metadata, expert_id = batch
+        x, metadata, expert_id, labels = batch
 
         # Get optimizers
         optims = self.get_optimizers()
         expert_optimizer = optims["experts"][expert_id]
         vae_optimizer = optims["vae"]
-        adversarial_optimizers = optims.get("adversarials")
 
         # Zero all gradients
         vae_optimizer.zero_grad()
         expert_optimizer.zero_grad()
-        if adversarial_optimizers:
-            for optim in adversarial_optimizers.values():
-                optim.zero_grad()
+        if self.module.adversarial_groups:
+            for adv_group in self.module.adversarial_groups:
+                self.zero_adv_optimizers(adv_group.conditional)
 
         # Perform forward pass
         qz, pz, z, xhats, hidden_representations = self.module(
@@ -221,20 +183,22 @@ class CMMVAEModel(BaseModel):
 
         total_loss = main_loss_dict[RK.LOSS]
 
-        adv_loss = None
-        # Train adversarial networks
-        if self.module.adversarials:
-            if self.adversarial_method == "GRF":
-                adv_loss = self.gradient_reversal_domain_classifier(
-                    hidden_representations + [z], expert_id, adversarial_optimizers
-                )
-            else:
-                adv_loss = self.adversarial_feedback(
-                    hidden_representations, expert_id, adversarial_optimizers
-                )
 
+        adv_loss = None
+        if self.module.adversarial_groups:
+            adv_loss = self.adversarial_feedback(
+                hidden_representations,
+                labels,
+                main_loss_dict,
+                self.adversarial_method == "GRF"
+            )
+
+        adv_weight = 0
+        if self.current_epoch > 0:
+            adv_weight = self.adv_weight
         if adv_loss:
-            total_loss = total_loss + adv_loss * self.adv_weight
+            total_loss = total_loss + (adv_loss * adv_weight)
+
 
         # Backpropagate main loss
         self.manual_backward(total_loss)
@@ -245,11 +209,6 @@ class CMMVAEModel(BaseModel):
             {"vae": vae_optimizer, f"expert_{expert_id}": expert_optimizer},
             tag_prefix="grad_norms/main_network",
         )
-
-        if adversarial_optimizers:
-            self.log_gradient_norms(
-                adversarial_optimizers, tag_prefix="grad_norms/adversarials"
-            )
 
         # Clip gradients for stability
         if self.autograd_config.vae_gradient_clip:
@@ -277,7 +236,7 @@ class CMMVAEModel(BaseModel):
         Args:
             batch (tuple): Batch of data containing inputs, metadata, and expert ID.
         """
-        x, metadata, expert_id = batch
+        x, metadata, expert_id, _ = batch
         # expert_label = self.module.experts.labels[expert_id]
 
         # Perform forward pass and compute the loss
@@ -311,7 +270,7 @@ class CMMVAEModel(BaseModel):
             batch (tuple): Batch of data containing inputs, metadata, and expert ID.
             batch_idx (int): Index of the batch.
         """
-        x, metadata, species = batch
+        x, metadata, species, _ = batch
         embeddings = self.module.get_latent_embeddings(x, metadata, species)
         return embeddings
         # self.save_predictions(embeddings, batch_idx)
@@ -364,17 +323,31 @@ class CMMVAEModel(BaseModel):
         optim_dict["vae"] = optim_cls(
             self.module.vae.parameters(), lr=5e-3, weight_decay=1e-6
         )
-        if self.module.adversarials:
-            optim_dict["adversarials"] = {
-                i: optim_cls(module.parameters(), lr=5e-3, weight_decay=1e-6)
-                for i, module in enumerate(self.module.adversarials)
-            }
+
+        if self.module.adversarial_groups:
+            for adversarial_group in self.module.adversarial_groups:
+                optim_dict["adversarials" + adversarial_group.conditional ] = {
+                    i: optim_cls(module.parameters(), lr=5e-3, weight_decay=1e-6)
+                    for i, module in enumerate(adversarial_group.adversarials)
+                }
 
         optimizers = []
         self.optimizer_map = convert_to_flat_list_and_map(optim_dict, optimizers)
 
         return optimizers
 
+    def step_adv_optimizers(self):
+        optimizers = self.get_optimizers()
+        for group in self.module.adversarial_groups:
+            for _, opt in optimizers["adversarials" + group.conditional].items():
+                if self.autograd_config.adversarial_gradient_clip:
+                    self.clip_gradients(opt, *self.autograd_config.adversarial_gradient_clip)
+                opt.step()
+
+    def zero_adv_optimizers(self, condition):
+        optimizers = self.get_optimizers()
+        for _, opt in optimizers["adversarials" + condition].items():
+            opt.zero_grad()
 
 def convert_to_flat_list_and_map(d: dict, flat_list: Optional[list] = None) -> dict:
     """

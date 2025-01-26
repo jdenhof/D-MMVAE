@@ -5,13 +5,12 @@ import pandas as pd
 import torch
 from torch import nn
 
-from cmmvae.modules.base import Experts, FCBlock, FCBlockConfig
+from cmmvae.modules.base import Experts, FCBlock, FCBlockConfig, AdversarialsGroup
 from cmmvae.modules import CLVAE
 from cmmvae.constants import REGISTRY_KEYS as RK
 
 
-adversarial_TYP = Union[Optional[FCBlockConfig], list[Optional[FCBlockConfig]]]
-
+adversarials_TYP = Union[Optional[AdversarialsGroup], list[Optional[AdversarialsGroup]]]
 
 class CMMVAE(nn.Module):
     """
@@ -41,19 +40,17 @@ class CMMVAE(nn.Module):
         self,
         vae: CLVAE,
         experts: Experts,
-        adversarials: adversarial_TYP = None,
+        adversarial_groups: adversarials_TYP = None,
     ):
         super().__init__()
         self.vae = vae
         self.experts = experts
-        self.adversarials = None
+        self.adversarial_groups = None
 
-        if adversarials:
-            if not isinstance(adversarials, list):
-                adversarials = [adversarials]
-            self.adversarials = nn.ModuleList(
-                [FCBlock(config) for config in adversarials if config]
-            )
+        if adversarial_groups:
+            if not isinstance(adversarial_groups, list):
+                adversarial_groups = [adversarial_groups]
+            self.adversarial_groups = adversarial_groups
 
     def forward(
         self,

@@ -1,3 +1,5 @@
+root_dir: lightning_logs
+
 # Experiment Parameters
 categories:
 - 'donor_id'

@@ -123,8 +123,8 @@ def record_expression(
 def expression(ctx: click.Context):
     sys.argv = [sys.argv[0]]
     # Example of further processing with CMMVAECli
+    print("Hello_world")
     cli = CMMVAECli(args=ctx.args, only_data=True, run=False)
-
     datamodule = cli.datamodule
 
     pickle_files = get_metadata_files(datamodule)
